@@ -3,15 +3,24 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [project]
-name = "lumi_language_id"
-version = "0.2.1"
+# Distribution name on PyPI. The import name stays `lumi_language_id`.
+name = "lumi-language-id-2"
+version = "2.0.0"
 description = "For when you want fastText language identification, but you also want to believe the answers"
 readme = "README.md"
 license = "MIT"
 license-files = ["LICENSE.txt"]
 requires-python = ">=3.9"
-maintainers = [
+keywords = ["language-identification", "language-detection", "fasttext", "nlp"]
+authors = [
     { name = "Robyn Speer", email = "rspeer@luminoso.com" },
+]
+maintainers = [
+    { name = "William Roe", email = "whr778@gmail.com" },
+]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Topic :: Text Processing :: Linguistic",
 ]
 dependencies = [
     # 'fasttext-numpy2' is a drop-in fork of 'fasttext' (same `fasttext`
@@ -28,6 +37,9 @@ train = ["scikit-learn"]
 
 [dependency-groups]
 dev = ["pytest"]
+
+[project.urls]
+Repository = "https://github.com/whr778/lumi_language_id"
 
 [tool.hatch.build.targets.wheel]
 packages = ["lumi_language_id"]

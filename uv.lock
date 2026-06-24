@@ -112,8 +112,8 @@ wheels = [
 ]
 
 [[package]]
-name = "lumi-language-id"
-version = "0.2.1"
+name = "lumi-language-id-2"
+version = "2.0.0"
 source = { editable = "." }
 dependencies = [
     { name = "fasttext-numpy2" },

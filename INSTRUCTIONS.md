@@ -86,6 +86,27 @@ uv build
 This produces a wheel and sdist in `dist/`, both containing the bundled model
 data files (`lid.176.ftz`, `tuned.npz`).
 
+## Publishing to PyPI
+
+The package is published under the distribution name **`lumi-language-id-2`**
+(the original `lumi-language-id` name is taken by the now-archived upstream
+project). The import name is unchanged — users still `import lumi_language_id`.
+
+Validate the built artifacts, then upload with an API token:
+
+```sh
+uvx twine check dist/*
+
+# Dry run against TestPyPI first (optional, recommended):
+uv publish --publish-url https://test.pypi.org/legacy/ --token <testpypi-token>
+
+# Real upload:
+uv publish --token <pypi-token>
+```
+
+A published version can never be reused, so bump `version` in `pyproject.toml`
+before each release.
+
 ## Tested configurations
 
 Verified building from source and detecting correctly with:
