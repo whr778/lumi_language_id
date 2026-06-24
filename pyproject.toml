@@ -1,0 +1,33 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "lumi_language_id"
+version = "0.2.1"
+description = "For when you want fastText language identification, but you also want to believe the answers"
+readme = "README.md"
+license = "MIT"
+license-files = ["LICENSE.txt"]
+requires-python = ">=3.9"
+maintainers = [
+    { name = "Robyn Speer", email = "rspeer@luminoso.com" },
+]
+dependencies = [
+    # 'fasttext-numpy2' is a drop-in fork of 'fasttext' (same `fasttext`
+    # module) with the one-line fix needed for numpy >= 2 compatibility.
+    "fasttext-numpy2",
+    "numpy",
+    "ftfy",
+    "langcodes>=2",
+]
+
+[project.optional-dependencies]
+# Training the tuned model requires scikit-learn, but using the model doesn't.
+train = ["scikit-learn"]
+
+[dependency-groups]
+dev = ["pytest"]
+
+[tool.hatch.build.targets.wheel]
+packages = ["lumi_language_id"]
