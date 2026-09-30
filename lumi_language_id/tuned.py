@@ -2,6 +2,11 @@ import numpy as np
 from lumi_language_id import LanguageIdentifier, data_file
 
 
+# Version 2 reads log1p-scaled counts from `make_data_point`; a version 1 file expects raw
+# counts and would be silently wrong on them, so it is refused rather than loaded.
+FORMAT_VERSION = 2
+
+
 class MultiLayerPerceptron:
     """
     A simple implementation of an MLP classifier. This implementation has no training code, but
@@ -48,7 +53,7 @@ class MultiLayerPerceptron:
         Save the coefficients and intercepts of a trained classifier in a .npz
         file that can be loaded without scikit-learn.
         """
-        version = 1
+        version = FORMAT_VERSION
         n_layers = len(coefs)
         arrays = {'meta': np.array([version, n_layers])}
         for layer_num, (coefs_layer, intercepts_layer) in enumerate(
@@ -59,15 +64,16 @@ class MultiLayerPerceptron:
         np.savez(filename, **arrays)
 
     @classmethod
-    def load(cls, filename):
+    def load(cls, filename, version=FORMAT_VERSION):
         """
-        Load a MultiLayerPerceptron classifier from a .npz file.
+        Load a MultiLayerPerceptron classifier from a .npz file of the given format version.
         """
         arrays = np.load(filename)
-        version, n_layers = arrays['meta']
-        if version != 1:
+        file_version, n_layers = arrays['meta']
+        if file_version != version:
             raise NotImplementedError(
-                "This code only understands MultiLayerPerceptron version 1"
+                f"{filename} is MultiLayerPerceptron version {file_version}; "
+                f"this code reads version {version}"
             )
 
         coefs = []

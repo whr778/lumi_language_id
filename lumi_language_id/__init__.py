@@ -96,6 +96,101 @@ def align_language_to_fasttext(language):
     return matched_language
 
 
+# fastText's lid.176 labels are Wikipedia codes; these name a different language in
+# ISO 639 (Wikipedia's `als` is Alemannic, ISO `als` is Tosk Albanian).
+WIKI_TO_ISO = {'als': 'gsw', 'bh': 'bho'}
+# The same language under two codes once macrolanguages are folded.
+LANGUAGE_ALIASES = {'nb': 'no', 'pbt': 'ps'}
+# langcodes' likely-script data disagrees with the text these labels were trained on.
+FT_SCRIPTS = {'xal': 'Cyrl', 'azb': 'Arab', 'ko': 'Hang'}
+
+
+def _fold(code):
+    """Language subtag with macrolanguages folded, identically for any caller."""
+    folded = langcodes.Language.get(langcodes.standardize_tag(code, macro=True)).language
+    return LANGUAGE_ALIASES.get(folded, folded)
+
+
+def _fasttext_key(label):
+    """The (language, script) a fastText label stands for."""
+    iso = WIKI_TO_ISO.get(label, label)
+    return _fold(iso), FT_SCRIPTS.get(label) or langcodes.Language.get(iso).maximize().script
+
+
+def _script_compatible(script, ft_script):
+    return script == ft_script or (script == 'Hani' and ft_script in ('Hans', 'Hant'))
+
+
+def align_to_fasttext(language, script):
+    """
+    Map a language and script to the fastText label for exactly that language, or 'und'.
+
+    Unlike `align_language_to_fasttext`, this never settles for a nearby language:
+    `closest_match` scores Mandarin -> 'zh' and Cherokee -> 'en' at the same distance
+    (20), so no threshold separates a right answer from a wrong one. A label is returned
+    only when the language matches after macrolanguage folding AND the script is the one
+    fastText saw, so romanized Hindi or Arabic is 'und' rather than 'hi' or 'ar'.
+
+    >>> align_to_fasttext('cmn', 'Hani')
+    'zh'
+    >>> align_to_fasttext('chr', 'Latn')
+    'und'
+    >>> align_to_fasttext('als', 'Latn')
+    'sq'
+    >>> align_to_fasttext('gsw', 'Latn')
+    'als'
+    >>> align_to_fasttext('kor', 'Hang')
+    'ko'
+    """
+    lang = _fold(language)
+    hits = [
+        label for label in FT_LANGUAGES
+        if _fasttext_key(label)[0] == lang and _script_compatible(script, _fasttext_key(label)[1])
+    ]
+    return hits[0] if len(hits) == 1 else 'und'
+
+
+CHINESE_LABELS = ('zh', 'yue', 'wuu')
+
+
+def _is_kana(ch):
+    return (0x3040 <= ord(ch) < 0x3100 or 0x31F0 <= ord(ch) < 0x3200
+            or 0xFF66 <= ord(ch) < 0xFF9E)
+
+
+def _encodes(ch, codec):
+    try:
+        ch.encode(codec)
+    except UnicodeEncodeError:
+        return False
+    return True
+
+
+def _is_chinese_only(ch):
+    """A CJK character in the Chinese GB2312 set but absent from Japanese EUC-JP."""
+    return 0x4E00 <= ord(ch) < 0xA000 and _encodes(ch, 'gb2312') and not _encodes(ch, 'euc_jp')
+
+
+def is_chinese_not_japanese(text):
+    """
+    True when text cannot be Japanese: it has no kana and at least one character that
+    exists in simplified Chinese but not in Japanese (艺, 发, 长, but not 様 or 京).
+
+    fastText's lid.176 labels short simplified-Chinese sentences 'ja' -- 763 of 11,323
+    DuEE news sentences, none containing kana. This test flips 757 of them and none of
+    1,200 Japanese FineWeb-2 texts and fragments; a kana-free test alone also flipped
+    kanji-only Japanese fragments such as 日本銀行勤務.
+
+    >>> is_chinese_not_japanese('事发学校校长朱某已被停职检查')
+    True
+    >>> is_chinese_not_japanese('日本銀行勤務')
+    False
+    >>> is_chinese_not_japanese('これらは言葉です')
+    False
+    """
+    return not any(_is_kana(ch) for ch in text) and any(_is_chinese_only(ch) for ch in text)
+
+
 def predicted_info(confidence):
     """
     Convert the estimated confidence of a language ID prediction into a number of bits of
@@ -104,11 +199,11 @@ def predicted_info(confidence):
     Examples:
 
     >>> predicted_info(0.5)
-    1.
+    1.0
     >>> predicted_info(0.875)
-    3.
+    3.0
     >>> predicted_info(1.)
-    20.
+    20.0
     """
     if confidence >= 1.:
         return 20.
@@ -158,17 +253,26 @@ class LanguageIdentifier:
         # (('__label__en',), array([0.99047953]))
 
         language_struct, confidence_struct = prediction_struct
-
-        # Extract the predicted language code from this:
-        label_size = len('__label__')
-        pred_language = language_struct[0][label_size:]
-
-        # In the wonderful future of Python 3.9, the above would be:
-        # language_struct[0].removeprefix('__label__')
-
-        # And then the confidence in the prediction:
+        pred_language = language_struct[0].removeprefix('__label__')
         pred_confidence = confidence_struct[0]
+        if pred_language == 'ja' and is_chinese_not_japanese(cleaned):
+            return self._best_chinese_label(cleaned, pred_confidence)
         return (pred_language, pred_confidence)
+
+    def _best_chinese_label(self, cleaned, ja_confidence):
+        """
+        fastText's most likely Chinese label, taking over the probability it gave 'ja'.
+
+        Only the Han-script labels are candidates: fastText's runner-up on these texts
+        is 'zh' 82% of the time but otherwise Polish, Spanish or Ukrainian.
+        """
+        labels, confidences = self.ft_model.predict(cleaned, k=-1)
+        scores = {
+            label.removeprefix('__label__'): confidence
+            for label, confidence in zip(labels, confidences)
+        }
+        best = max(CHINESE_LABELS, key=lambda label: scores.get(label, 0.))
+        return (best, scores.get(best, 0.) + ja_confidence)
 
     def make_data_point(self, text):
         """
@@ -185,4 +289,7 @@ class LanguageIdentifier:
         language, confidence = self.detect_language(text)
         info = predicted_info(confidence)
 
-        return np.array([text_length, info, num_spaces, num_han_characters]), language
+        # Counts are log-scaled: web documents run to 500,000 characters, and raw
+        # counts push the ReLU classifier far outside the range it can fit.
+        counts = np.log1p([text_length, num_spaces, num_han_characters])
+        return np.array([counts[0], info, counts[1], counts[2]]), language

@@ -6,5 +6,5 @@
 __pycache__
 build
 dist
-lumi_language_id/data/corpus
+corpus
 __MACOSX

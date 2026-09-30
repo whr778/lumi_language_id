@@ -2,9 +2,44 @@
 Functions that read training/test data from corpus files.
 """
 import csv
+import json
+import math
+import random
+from pathlib import Path
+
 import ftfy
 
 from lumi_language_id import corpus_file, align_language_to_fasttext
+
+
+def short_window(text, rng, min_chars=10, max_chars=500):
+    """
+    A window of log-uniform length starting at a random offset.
+
+    Web documents are long, and the classifier must also be calibrated on short text
+    (tweets, headlines, single sentences). The offset is random rather than 0 because
+    many pages open with navigation boilerplate.
+    """
+    length = int(math.exp(rng.uniform(math.log(min_chars), math.log(max_chars))))
+    if len(text) <= length:
+        return text
+    start = rng.randrange(len(text) - length)
+    return text[start:start + length]
+
+
+def fineweb_gen(split, seed=0):
+    """
+    Yield (text, label) from the FineWeb cache that `fetch_fineweb` writes: each
+    document once in full and once as a short window, so both regimes are covered.
+    """
+    rng = random.Random(seed)
+    for path in sorted(Path(corpus_file('fineweb')).glob(f'*.{split}.jsonl')):
+        with open(path, encoding='utf-8') as rows:
+            for line in rows:
+                row = json.loads(line)
+                text = ftfy.fix_text(row['text'])
+                yield (text, row['label'])
+                yield (short_window(text, rng), row['label'])
 
 
 def twitter_gen():

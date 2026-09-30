@@ -71,6 +71,17 @@ print(lid.detect_language('aquí hay algunas palabras'))
 "
 ```
 
+If the source build of `fasttext-numpy2` fails with `field has incomplete type
+'std::exception_ptr'`, a Homebrew LLVM is first on your `PATH`: its libc++ no
+longer includes `<exception>` indirectly, and fastText's `src/fasttext.h` relies on
+that. Build with Apple's compiler instead:
+
+```sh
+CC=/usr/bin/clang CXX=/usr/bin/clang++ uv sync --extra train
+```
+
+To retrain the tuned model, see [TRAINING.md](TRAINING.md).
+
 Run the test suite (pytest comes from the `dev` group):
 
 ```sh
