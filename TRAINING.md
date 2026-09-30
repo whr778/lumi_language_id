@@ -40,6 +40,11 @@ Options:
 uv run python -m lumi_language_id.fetch_fineweb --train 300 --test 100 --workers 8
 ```
 
+Known issue: a full run has been seen to print its last label line and then not
+exit. Every file is complete at that point -- each is written only after all its rows
+are collected -- so stop the process. A small run exits normally, and the cause is not
+yet known.
+
 The run resumes: a label whose files already exist is skipped, so rerunning after
 a network failure fetches only what is missing. Delete `corpus/fineweb/` to start
 over. Some rare languages have fewer test documents than requested, because
@@ -66,8 +71,8 @@ This reads only the local cache. It:
 3. fits the classifier (seeded, so a rebuild is reproducible) and **overwrites
    `lumi_language_id/data/tuned.npz`**;
 4. prints validation and test accuracy and log loss, then a table by text length
-   and script for the shipped classifier next to the retrained one, then accuracy
-   per language.
+   and script for the shipped classifier next to the retrained one, then per language
+   how often fastText is right and how often a right answer is withheld.
 
 The shipped `tuned.npz` is tracked in git; to discard a retrain:
 

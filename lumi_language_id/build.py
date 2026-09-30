@@ -164,21 +164,27 @@ def run():
     print(f'Test accuracy: {model_accuracy:3.3f}')
     print(f'Log loss: {model_loss:3.3f}')
 
-    # The shipped classifier against the new one, on the same held-out rows. A version 1
+    # The classifier on disk against the new one, on the same held-out rows. A version 1
     # file was trained on raw counts, so it is given raw counts.
-    shipped = MultiLayerPerceptron.load(data_file('tuned.npz'), version=1)
-    raw_test = input_test.copy()
-    raw_test[:, [0, 2, 3]] = np.expm1(raw_test[:, [0, 2, 3]])
-    shipped_p = np.array([shipped.probability(row) for row in raw_test])
+    shipped_version = int(np.load(data_file('tuned.npz'))['meta'][0])
+    shipped = MultiLayerPerceptron.load(data_file('tuned.npz'), version=shipped_version)
+    shipped_test = input_test.copy()
+    if shipped_version == 1:
+        shipped_test[:, [0, 2, 3]] = np.expm1(shipped_test[:, [0, 2, 3]])
+    shipped_p = np.array([shipped.probability(row) for row in shipped_test])
     bucket_report('shipped tuned.npz', shipped_p, input_test, output_test)
     bucket_report('retrained', predictions_p, input_test, output_test)
 
-    # Show a breakdown of test set accuracy per language
-    languages = sorted(set(labels_test))
-    for lang in languages:
-        lang_filter = [label == lang for label in labels_test]
-        lang_accuracy = balanced_accuracy_score(output_test[lang_filter], predictions[lang_filter])
-        print(f'\t{lang}\t{lang_accuracy:3.3f}')
+    # Per language: how often fastText is right, and how often a right answer is withheld.
+    # Balanced accuracy is not used here: where fastText is always right it degenerates to
+    # the keep rate, which printed Korean as 0.667 while no Korean answer was withheld.
+    print('\tlang\tfastText right\tright but withheld: shipped -> retrained')
+    labels_test = np.array(labels_test)
+    for lang in sorted(set(labels_test)):
+        rows = labels_test == lang
+        right = rows & output_test
+        withheld = lambda p: (p[right] < 0.5).mean() if right.any() else float('nan')
+        print(f'\t{lang}\t{output_test[rows].mean():6.1%}\t{withheld(shipped_p):6.1%} -> {withheld(predictions_p):6.1%}')
 
     # Extract the trained model and save it in a form that doesn't require
     # scikit-learn to run.
