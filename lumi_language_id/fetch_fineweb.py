@@ -15,6 +15,8 @@ import argparse
 import hashlib
 import itertools
 import json
+import os
+import sys
 from collections import defaultdict
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
@@ -133,5 +135,27 @@ def main():
             print(f'{label:5} train {counts["train"]:4}  test {counts["test"]:4}', flush=True)
 
 
+def exit_without_arrow_teardown():
+    """
+    End the process without running C++ static destructors.
+
+    After a full run, pyarrow 25.0.1's global thread pool deadlocks in its own static
+    destructor: C `exit()` destroys the pool, `ThreadPool::Shutdown` waits on a condition
+    variable for its workers, and every worker is idle waiting on a condition variable
+    for work. Sampled on macOS: 1 thread in `__cxa_finalize_ranges` ->
+    `ThreadPool::Shutdown`, 8 workers in `condition_variable::wait`, 0% CPU, forever.
+    Every file is written and closed before this point, so skipping teardown loses
+    nothing. Small runs never grow the pool and exit normally either way.
+
+    Fixed upstream: the same full run exits cleanly on pyarrow 26.0.0.dev323, which
+    contains apache/arrow#48137's fix (a hang in `ThreadPool::Shutdown`). Remove this
+    once pyarrow 26 is the minimum.
+    """
+    sys.stdout.flush()
+    sys.stderr.flush()
+    os._exit(0)
+
+
 if __name__ == '__main__':
     main()
+    exit_without_arrow_teardown()

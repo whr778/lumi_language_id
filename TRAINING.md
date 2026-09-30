@@ -49,10 +49,13 @@ Options:
 uv run python -m lumi_language_id.fetch_fineweb --train 300 --test 100 --workers 8
 ```
 
-Known issue: a full run has been seen to print its last label line and then not
-exit. Every file is complete at that point -- each is written only after all its rows
-are collected -- so stop the process. A small run exits normally, and the cause is not
-yet known.
+The script ends with `os._exit(0)` once every file is written. A full run grows
+pyarrow's global thread pool, and in pyarrow 25.0.1 that pool deadlocks in its own
+C++ static destructor at process exit (sampled: `ThreadPool::Shutdown` waiting on
+workers that are themselves idle, 0% CPU, indefinitely). Skipping teardown loses
+nothing, because each file is written and closed before its label is printed.
+The same run exits cleanly on a pyarrow 26 nightly, which contains the fix for
+[apache/arrow#48137](https://github.com/apache/arrow/issues/48137).
 
 The run resumes: a label whose files already exist is skipped, so rerunning after
 a network failure fetches only what is missing. Delete `corpus/fineweb/` to start

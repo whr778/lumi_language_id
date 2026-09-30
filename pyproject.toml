@@ -5,7 +5,7 @@ build-backend = "hatchling.build"
 [project]
 # Distribution name on PyPI. The import name stays `lumi_language_id`.
 name = "lumi-language-id-2"
-version = "3.0.0"
+version = "3.0.1"
 description = "For when you want fastText language identification, but you also want to believe the answers"
 readme = "README.md"
 license = "MIT"
