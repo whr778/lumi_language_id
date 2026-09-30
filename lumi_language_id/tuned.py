@@ -2,8 +2,9 @@ import numpy as np
 from lumi_language_id import LanguageIdentifier, data_file
 
 
-# Version 2 reads log1p-scaled counts from `make_data_point`; a version 1 file expects raw
-# counts and would be silently wrong on them, so it is refused rather than loaded.
+# Version 2 reads the five features of `make_data_point` (log-scaled counts plus the log
+# web size of the predicted language). A version 1 file expects four raw counts and would
+# be silently wrong on log-scaled ones, so it is refused rather than loaded.
 FORMAT_VERSION = 2
 
 

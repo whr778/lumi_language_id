@@ -4,8 +4,17 @@ The package ships two models in `lumi_language_id/data/`:
 
 - `lid.176.ftz` -- fastText's language identifier, used as-is;
 - `tuned.npz` -- a small classifier that estimates whether fastText's answer is
-  right, from four features of the text (log length, fastText's confidence in bits,
-  log space count, log Han-character count).
+  right, from five features: log length, fastText's confidence in bits, log space
+  count, log Han-character count, and the log web size of the predicted language;
+- `language_sizes.json` -- that web size for each of fastText's 176 labels, copied
+  from `corpus/fineweb/sizes.json`.
+
+Only `tuned.npz` is retrained. If you refetch, copy the new sizes into the package
+first, because the classifier reads them at inference:
+
+```sh
+cp corpus/fineweb/sizes.json lumi_language_id/data/language_sizes.json
+```
 
 Only `tuned.npz` is retrained. It needs a labelled sample of text, which is built
 from FineWeb-2 (175 fastText languages) and FineWeb (English).
@@ -68,8 +77,8 @@ This reads only the local cache. It:
 2. weights each language by `size ** 0.3` (`SIZE_EXPONENT` in `build.py`). With
    uniform weights, Cantonese and Wu, which fastText calls `'zh'`, made up 59% of
    the Han text, and the classifier learned to withhold correct Mandarin answers;
-3. fits the classifier (seeded, so a rebuild is reproducible) and **overwrites
-   `lumi_language_id/data/tuned.npz`**;
+3. fits the classifier (seeded, so a rebuild is byte-identical) and **overwrites
+   `lumi_language_id/data/tuned.npz`**, and rewrites `LANGUAGES.md` from the test split;
 4. prints validation and test accuracy and log loss, then a table by text length
    and script for the shipped classifier next to the retrained one, then per language
    how often fastText is right and how often a right answer is withheld.

@@ -32,7 +32,8 @@ LONG_CHINESE_ROWS = [
 @pytest.mark.parametrize('row', LONG_CHINESE_ROWS)
 def test_long_chinese_is_kept(row):
     counts = np.log1p([row[0], row[2], row[3]])
-    features = np.array([counts[0], row[1], counts[1], counts[2]])
+    zh_size = np.log1p(LID.language_identifier.language_sizes['zh'])
+    features = np.array([counts[0], row[1], counts[1], counts[2], zh_size])
     assert LID.tuned_classifier.probability(features) >= 0.5
 
 

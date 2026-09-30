@@ -26,7 +26,7 @@ Example:
     >>> lang
     'es'
 
-## Changes in this fork
+## Changes in 3.0.0
 
 - **Long Chinese and Japanese text is no longer rejected.** The original classifier
   was trained on tweets and Wikipedia introductions and withheld fastText's
@@ -43,10 +43,19 @@ Example:
   label for exactly that language, or `'und'`. The older
   `align_language_to_fasttext` accepts a nearby language, so Cherokee and
   Hawaiian map to `'en'`.
-- The saved classifier is format version 2 (log-scaled count features). Version 1
-  files are refused rather than silently misread.
+- **The classifier knows which language fastText predicted.** Its features now
+  include the web size of the predicted language, so a `'zh'` answer on Mandarin
+  (right 98% of the time) is no longer judged like one on Cantonese (right 2%).
+- **Cost:** on short text (10 to 500 characters) in common Latin-script languages,
+  a correct answer is withheld as `'und'` somewhat more often (English 2.6% to
+  5.1%). Full documents are unaffected. [LANGUAGES.md](LANGUAGES.md) gives the
+  measured behaviour for every language.
+- **Breaking:** the saved classifier is format version 2 (five features, counts
+  log-scaled), and version 1 files are refused rather than silently misread. Some
+  inputs get a different label than in 2.0.0 (kana-free Chinese, above).
 
-See [TRAINING.md](TRAINING.md) to rebuild the classifier and
+See [LANGUAGES.md](LANGUAGES.md) for per-language accuracy, [TRAINING.md](TRAINING.md) to
+rebuild the classifier, and
 [INSTRUCTIONS.md](INSTRUCTIONS.md) for development setup and publishing.
 
 ## Data
